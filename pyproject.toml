@@ -1,0 +1,132 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poserbf"
+version = "0.1.0"
+description = "Pose-space RBF for Maya, evaluated by a Bifrost graph."
+requires-python = ">=3.11"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Luis de Campos" }]
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "pyright>=1.1.411",
+    "types-maya>=0.6",
+    "PySide6>=6.8,<6.9",  # the Qt for Python of Maya 2027
+    "PySide6-stubs>=6.7",  # its types, complete where its own stubs are not
+    "import-linter>=2.13",
+    "arid>=2.2",
+]
+docs = [
+    "sphinx>=8.0",
+    "myst-parser>=4.0",
+    "sphinx-autoapi>=3.8",
+    "furo>=2024.8",
+    "mdformat>=0.7",
+    "mdformat-gfm>=0.4",
+    "mdformat-mkdocs>=5.2",
+]
+
+[tool.setuptools]
+packages = ["poserbf"]
+
+[tool.setuptools.package-data]
+poserbf = ["board.json", "*.svg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers"
+
+[tool.importlinter]
+root_packages = ["poserbf"]
+# Required for any contract naming a third-party package.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers of the package"
+type = "layers"
+containers = ["poserbf"]
+layers = [
+    "ui : plot",
+    "commands : session : board",
+    "preview : definition : reference",
+]
+exhaustive = true
+
+[[tool.importlinter.contracts]]
+name = "Only the scene layer touches Maya"
+type = "forbidden"
+source_modules = [
+    "poserbf.ui",
+    "poserbf.plot",
+    "poserbf.preview",
+    "poserbf.definition",
+    "poserbf.reference",
+]
+forbidden_modules = ["maya"]
+# The window works through the scene layer, above which it sits.
+allow_indirect_imports = true
+ignore_imports = [
+    # The window docks in Maya by subclassing Maya's own mixin; there is no other seam.
+    "poserbf.ui -> maya",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the window layer touches Qt"
+type = "forbidden"
+source_modules = [
+    "poserbf.commands",
+    "poserbf.session",
+    "poserbf.board",
+    "poserbf.preview",
+    "poserbf.definition",
+    "poserbf.reference",
+]
+forbidden_modules = ["PySide6", "shiboken6"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["."]
+respect-gitignore = false  # Files git leaves out are linted too.
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "D",   # pydocstyle (Google style)
+    "UP",  # pyupgrade — modern syntax
+    "B",   # flake8-bugbear — likely bugs (mutable defaults, ...)
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "PTH", # flake8-use-pathlib
+    "T20", # flake8-print — no print(), use logging
+    "RUF", # Ruff-specific rules
+]
+fixable = ["ALL"]
+ignore = [
+    "N813",  # Maya's API modules are imported as om, by long-standing convention.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"install_poseRBF.py" = ["N802", "N999"]  # Maya calls onMayaDroppedPythonFile; the file is named after the tool.
+"poserbf/ui.py" = ["N802"]  # Qt and Maya's mixin call the handlers it overrides by camelCase names.
+"poserbf/plot.py" = ["N802"]  # Qt calls the handlers it overrides by camelCase names (paintEvent).
+"tests/**" = ["D"]
+# Scripts run with mayapy: Maya starts before the tool's imports, and they report by printing.
+"tests/integration/*" = ["D", "E402", "T20"]
+"tools/*" = ["E402", "T20"]
+"benchmarks/*" = ["E402", "T20"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

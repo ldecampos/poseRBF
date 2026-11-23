@@ -1,0 +1,16 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "exclude": [
+        "**/.*",
+        ".venv",
+        "**/__pycache__",
+        "docs/_build"
+    ],
+    "pythonVersion": "3.11",
+    "typeCheckingMode": "strict",
+    "extraPaths": [
+        "typings"
+    ],
+    "reportMissingModuleSource": "none"
+}
