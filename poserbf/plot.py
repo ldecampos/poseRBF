@@ -139,6 +139,7 @@ class Plot(QtWidgets.QWidget):
     def show_picture(self, picture: Picture) -> None:
         """Replaces what the plot shows; the marker stays where it is."""
         self.picture = picture
+        self.updateGeometry()
         self.update()
 
     def show_marker(self, x: float | None, label: str = "") -> None:
