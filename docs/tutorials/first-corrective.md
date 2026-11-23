@@ -3,8 +3,6 @@
 An arm bends and its elbow loses its tip. A corrective joint brings it back: an RBF
 reads the elbow and moves the joint only as much as the bend asks for.
 
-![On the left the arm without the corrective, on the right with it](../media/corrective.gif)
-
 It starts from an empty scene and needs poseRBF [installed](../how-to/install.md).
 
 ## 1. Make the arm

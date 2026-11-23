@@ -25,10 +25,6 @@ What it gives:
 
 ## What it looks like
 
-An elbow without and with a corrective joint driven by its bend:
-
-![On the left the arm without the corrective, on the right with it](docs/media/corrective.gif)
-
 The window, drawing what the settings do to the poses of the RBF:
 
 ![The Options tab of the window](docs/media/window-options.webp)
