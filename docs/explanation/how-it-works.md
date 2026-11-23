@@ -1,15 +1,19 @@
-# How poseRBF works
+# How an RBF works
 
-A pose RBF (radial basis function) blends results from examples: when the drivers
-are at a pose, the result is what that pose asks for; between poses, a blend. It
-measures how far the drivers are from each pose, turns the distances into one
-weight per pose, and blends with those weights.
+A pose RBF (radial basis function) blends results from examples. At a pose, the result
+is what that pose asks for; between poses, a blend; far from all of them, rest.
 
-## Distance
+![A joint points around a sphere; its tip takes the colour and size of the poses near](../media/direction.gif)
 
-A driver is a transform, read through its local `.matrix`, or a number. A transform
-is compared with each pose by four measures, each with its own factor (0 turns it
-off):
+It takes four steps. The example is an elbow with two poses, *straight* at 0 degrees and
+*bent* at 90, stopped halfway, at 45.
+
+## 1. Distance
+
+How far the drivers are from each pose. The elbow is 45 degrees from both.
+
+A transform is read through its local `.matrix` and compared by four measures; a number,
+by its difference:
 
 | Measure     | Compares                                               | Unit        |
 | ----------- | ------------------------------------------------------ | ----------- |
@@ -18,63 +22,73 @@ off):
 | Twist       | the rotation about the local axis                      | degrees     |
 | Translation | the position                                           | scene units |
 
-A number is compared by its difference. The distance to a pose is the square root
-of the sum of every factor-scaled measure, squared. Factors put different units on
-one scale and give a driver more or less weight.
-
-Several drivers make one pose out of several joints, such as an arm raised and an
-elbow bent at the same time.
-
-## Weight
-
-The distance over the radius goes through a falloff curve: Gaussian, exponential,
-linear, cubic or quintic. The radius is set, or automatic: 1.5 times the mean
-distance from each pose to its nearest one.
-
-- **Interpolative** mode solves the poses against each other, so each pose weighs
-    exactly 1 at itself and 0 at the others. **Regularization** trades that
-    exactness for smoothness when close poses ask for different results.
-- **Additive** mode uses the falloffs as they are.
-
-Negative weights can be set to 0. **Normalize** divides the weights by their sum:
-always, only when the sum passes 1 (**Above One**, the default), or never.
-
-## Results
-
-- **Weights:** one per pose.
-- **Values:** numbers each pose asks for, such as blendShape weights or any
-    attribute. The result is rest plus the weighted sum of each pose's change from
-    rest, so far from every pose a value returns to rest.
-- **Transforms:** per pose, the move of a driven transform from its rest,
-    blended from the identity and sent to the transform's `offsetParentMatrix`.
-    Rotations blend as quaternions.
-
-## The graph
-
-Each RBF is one Bifrost board with the same graph. Only the drivers enter through
-ports; the poses, the solved table and the options are constants, written by the
-tool.
+Each measure is multiplied by its factor and squared; the distance is the square root of
+their sum:
 
 ```text
-drivers ─► matrix_distances ─┐
-                             ├─► all_squared ─► pose_falloff ─► pose_weights ─► weights
-numbers ─► number_distances ─┘                                      │
-                                   values   ◄── driven_values ◄─────┤
-                                   matrices ◄── driven_transforms ◄─┘
+distance = √( (factor × difference)² + … )
 ```
 
-Every block carries a note in the Bifrost Graph Editor.
+Factors put different units on one scale. Several drivers make one pose out of several
+joints, such as an arm raised and an elbow bent at the same time.
 
-## Undo
+## 2. Answer
 
-Creating an RBF is not undone; deleting it removes it. Every edit is one undo step
-of Maya's own.
+The distance is divided by the radius, and a curve turns the result into an answer
+between 0 and 1. With `x = distance / radius`:
 
-## Limits
+| Curve       | Answer                    | Past the radius |
+| ----------- | ------------------------- | --------------- |
+| Gaussian    | `e^(−x²)`                 | fades, never 0  |
+| Exponential | `e^(−x)`                  | fades, never 0  |
+| Linear      | `1 − x`                   | 0               |
+| Cubic       | `(1 − x)² (1 + 2x)`       | 0               |
+| Quintic     | `(1 − x)³ (1 + 3x + 6x²)` | 0               |
 
-- With Maya's interface open and parallel evaluation, Bifrost boards, poseRBF's
-    and any other, can stall for tens to hundreds of milliseconds per frame. Serial
-    evaluation does not; with Cached Playback on, played frames come from the
-    cache.
-- On a board created in the session, backdrops and notes show in the Graph Editor
-    after the scene is saved and reopened.
+The automatic radius is 1.5 times the average distance from each pose to its nearest
+one: 1.5 × 90 = 135. At 45 degrees, `x` is 0.33 and a Gaussian answers 0.895, for both
+poses.
+
+## 3. Weight
+
+Answers are not weights yet: with the elbow straight, *bent* still answers 0.641. In
+interpolative mode, what each pose answers at every other pose is written in a table,
+and the table is inverted:
+
+```text
+1.000 0.641                1.698 −1.089
+0.641 1.000   inverted:   −1.089  1.698
+```
+
+Multiplied by it, the answers become exactly 1 and 0 at the poses:
+
+| Angle | Answers       | Weights       |
+| ----- | ------------- | ------------- |
+| 0°    | 1.000 / 0.641 | 1.000 / 0.000 |
+| 45°   | 0.895 / 0.895 | 0.545 / 0.545 |
+| 90°   | 0.641 / 1.000 | 0.000 / 1.000 |
+
+The inverse depends on the poses, not on the animation: it is solved once, when a pose
+changes.
+
+- **Regularization** trades the exact match for smoothness when close poses ask for
+    opposite results.
+- **Additive** mode skips this step and uses the answers as weights.
+- **Negative weights** can be set to 0.
+- **Normalize** divides the weights by their sum: always, never, or only when the sum
+    passes 1. At 45 degrees it is 1.09, and both weights end at 0.5.
+
+## 4. Result
+
+- **Weights:** one per pose.
+
+- **Values:** numbers each pose asks for, such as blendShape weights or any attribute.
+
+    ```text
+    value = rest + Σ weight × (pose value − rest)
+    ```
+
+- **Transforms:** per pose, the move from rest of a driven transform. Translation, scale
+    and rotation, as a quaternion, blend from the identity with the same weights, and
+    the matrix they make goes to the transform's `offsetParentMatrix`. Its channels stay
+    free.

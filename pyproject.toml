@@ -28,6 +28,7 @@ docs = [
     "myst-parser>=4.0",
     "sphinx-autoapi>=3.8",
     "furo>=2024.8",
+    "sphinx-design>=0.6",
     "mdformat>=0.7",
     "mdformat-gfm>=0.4",
     "mdformat-mkdocs>=5.2",

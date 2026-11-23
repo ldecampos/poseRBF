@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 project = "poseRBF"
 author = "Luis de Campos"
+copyright = "2026, Luis de Campos"
 release = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
     "project"
 ]["version"]
@@ -23,6 +24,7 @@ extensions = [
     "autoapi.extension",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
+    "sphinx_design",  # the cards of the first page
 ]
 
 myst_enable_extensions = ["colon_fence"]
@@ -60,6 +62,8 @@ suppress_warnings = ["autoapi.python_import_resolution"]
 
 html_theme = "furo"
 html_title = f"{project} {release}"
+html_logo = "../poserbf/poseRBF.svg"
+html_favicon = "../poserbf/poseRBF.svg"
 html_show_sphinx = False
 html_copy_source = False
 html_show_sourcelink = False
